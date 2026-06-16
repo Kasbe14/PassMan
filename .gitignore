@@ -1,0 +1,33 @@
+.env
+.vscode/
+##binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+passman-linux
+passman-mac-intel
+passman-mac-silicon
+
+#go cahe
+/pkg/
+bin/
+#os
+.DS_Store
+Thumbs.db
+*.db
+
+# Test/Profile artifacts
+coverage.txt
+coverage.html
+*.prof
+
+
+#learning
+notes.txt
+
+go.mod
+go.sum

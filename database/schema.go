@@ -11,14 +11,12 @@ import (
 
 const usersTable = `
 CREATE TABLE IF NOT EXISTS users (
-	user_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    username    TEXT NOT NULL UNIQUE,
-	master_hash BLOB NOT NULL,
-	answer      BLOB NOT NULL,
-	argon_salt  BLOB NOT NUll,
-	argon_iter  INTEGER NOT NULL,
-	argon_mem   INTEGER NOT NULL,
-	argon_thr   INTEGER NOT NULL
+	user_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    username       TEXT NOT NULL UNIQUE,
+	master_hash    TEXT NOT NULL,
+    encrypt_salt   BLOB NOT NULL,
+	WrappedKeyPass BLOB NOT NULL, 
+	WrappedKeyRec  BLOB NOT NULL 
 );
 `
 const profilesTable = `
@@ -44,8 +42,13 @@ func InitializeSchema(db *sql.DB) error {
 	return nil
 }
 
+//creates new databse  at userConfigdiretory
 func NewDatabase() (*sql.DB, error) {
-	db, err := sql.Open("sqlite", "data.db")
+     // userDbPath, err := dbPath(); 
+     // if err != nil {
+     //    return nil, fmt.Errorf("failed to open database: %v", err)
+    // }
+    db, err := sql.Open("sqlite", /*userDbPath*/"./data.db")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}

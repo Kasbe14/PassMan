@@ -10,7 +10,7 @@ type Users struct {
 	PassHash       string //salted hash of the password
     EncryptSalt    []byte //salt for derived key for masterkey
 	WrappedKeyPass []byte //masterkey locked by masterpassword [encrypted ciphertext AES-GCM nonce 12bytes appended at front]
-	WrappedkeyRec  []byte //master key lockey by string given to user  nonce 12bytes appended at front
+	WrappedKeyRec  []byte //master key lockey by string given to user  nonce 12bytes appended at front
 }
 
 type Profile struct {

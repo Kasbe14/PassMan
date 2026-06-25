@@ -20,6 +20,17 @@ bin/
 Thumbs.db
 *.db
 
+#swaps
+*.swap
+*.swp
+# Vim swap files
+*.swp
+*.swo
+*.swn
+# all Vim swap/backup files
+[._]*.s[a-w][a-z]
+*~   
+
 # Test/Profile artifacts
 coverage.txt
 coverage.html

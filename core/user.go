@@ -5,39 +5,34 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"strconv"
 	"strings"
-
+     // "github.com/Kasbe14/PassMan/model"
 	"golang.org/x/crypto/argon2"
 )
 
 const (
 	argonMemoryUsage = 256 * 1024 //gets 256 bytes from ram for crptographic noise
-	argonIterations  = 8          //number or iteration
+	argonIterations  = 10         //number or iteration
 	argonParallelism = 4          //use 4cores number of threads
 	hashLenght       = 32         //final hash 32bytes
 	saltLenght       = 16         //random salt of 16bytes
 )
 
-type Users struct {
-	UserID int64  //
-	Name   string // username
-	Pass   []byte //salted hash of the password
-	Answer []byte // answer to recovery/update password encrypted
-	//tuning parameters for the hashing
-	Salt              []byte // unique random data for salt 16b
-	ArgonIteration    uint32
-	ArgonMemory       uint32
-	ArgonParrallelism uint8
-}
 
-func NewUser() *Users
+// func NewUser(username, password, answer string) *Users {
+// 	return &Users{
+// 		Name: username,
+// 		Pass: ,
+// 	}
+// }
 
 // generates a salted hash and returns formatted string representation
-func CreateSaltedHash(inputPassword string) (string, error) {
+func CreateSaltedHash(inputPassword string) (string /*, []byte*/, error) {
 	salt := make([]byte, saltLenght)
 	//random sal bytes
 	if _, err := rand.Read(salt); err != nil {
-		return "", fmt.Errorf("failed to generate hashkey: %v", err)
+		return "" /*, nil*/, fmt.Errorf("failed to generate salt: %v", err)
 	}
 	//generating the salted hash
 	hash := argon2.IDKey([]byte(inputPassword), salt, uint32(argonIterations), uint32(argonMemoryUsage), uint8(argonParallelism), uint32(hashLenght))
@@ -49,10 +44,14 @@ func CreateSaltedHash(inputPassword string) (string, error) {
 		"$argon2id$v=%d$m=%d$t=%d$p=%d$%s$%s",
 		argon2.Version, argonMemoryUsage, argonIterations, argonParallelism, b64salt, b64Hash,
 	)
-	return encodedHash, nil
+	return encodedHash /* salt,*/, nil
 }
 
 func AuthenticateUser(inputPass, storedHashEncoding string) (bool, error) {
+	argonIterations, argonMemoryUsage, argonParallelism, err := parseParameters(storedHashEncoding)
+	if err != nil {
+		return false, fmt.Errorf("failed to authenticate user: %v", err)
+	}
 	salt, err := parseSalt(storedHashEncoding)
 	if err != nil {
 		return false, fmt.Errorf("failed to authenticate user: %v", err)
@@ -62,7 +61,7 @@ func AuthenticateUser(inputPass, storedHashEncoding string) (bool, error) {
 		return false, fmt.Errorf("failed to authenticate user: %v", err)
 	}
 	///compute hash against the inputed password
-	computedHash := argon2.IDKey([]byte(inputPass), salt, uint32(argonIterations), uint32(argonMemoryUsage), uint8(argonParallelism), uint32(hashLenght))
+	computedHash := argon2.IDKey([]byte(inputPass), salt, argonIterations, argonMemoryUsage, argonParallelism, hashLenght)
 	//compare hash bytes against time attaks
 	if subtle.ConstantTimeCompare(storedHash, computedHash) == 1 {
 		return true, nil
@@ -88,4 +87,28 @@ func parseHash(encodedHash string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to parse hash: %v", err)
 	}
 	return hashBytes, nil
+}
+func parseParameters(encodedHash string) (iter, mem uint32, thr uint8, err error) {
+	parameters := strings.Split(encodedHash, "$")
+
+	memStr := strings.TrimPrefix(parameters[3], "m=")
+	m, err := strconv.ParseUint(memStr, 10, 32)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse memory parameter: %v", err)
+	}
+	iterStr := strings.TrimPrefix(parameters[4], "t=")
+	i, err := strconv.ParseUint(iterStr, 10, 32)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse iteration parameter: %v", err)
+	}
+	thrStr := strings.TrimPrefix(parameters[5], "p=")
+	t, err := strconv.ParseUint(thrStr, 10, 8)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse threads parameter: %v", err)
+	}
+	iter = uint32(i)
+	mem = uint32(m)
+	thr = uint8(t)
+
+	return iter, mem, thr, nil
 }

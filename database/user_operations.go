@@ -11,13 +11,13 @@ import (
 //queries
 const  (
     queryCheckUserExist = `
-     SELECT EXIST(SELECT 1 FROM users WHERE username = ? LIMIT 1) 
+     SELECT EXISTS (SELECT 1 FROM users WHERE username = ?) 
     `
     queryGetUserCreds = `
     SELECT master_hash, encrypt_salt, WrappedKeyPass FROM users WHERE username = ? LIMIT 1
     `
     queryInsertUser = `
-    INSERT INTO users (username, master_hash, encrypt_salt, WrappedKeyPass, WrappedkeyRec) VALUES (?,?,?,?,?)
+    INSERT INTO users (username, master_hash, encrypt_salt, WrappedKeyPass, WrappedKeyRec) VALUES (?,?,?,?,?)
     `
 )
 
@@ -42,7 +42,7 @@ func GetUserCredentials(db *sql.DB, username string) (string,[]byte, []byte,erro
 	return saltedHash,encryptSalt,wrapKey, nil
 }
 func InsertUser(db *sql.DB, user model.Users) error {
-    result, err := db.Exec(queryInsertUser,user.Name,user.PassHash,user.EncryptSalt,user.WrappedKeyPass,user.WrappedkeyRec)
+    result, err := db.Exec(queryInsertUser,user.Name,user.PassHash,user.EncryptSalt,user.WrappedKeyPass,user.WrappedKeyRec)
     if err != nil {
         return err
     }

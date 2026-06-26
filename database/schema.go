@@ -23,15 +23,23 @@ const profilesTable = `
 CREATE TABLE IF NOT EXISTS profiles (
 	profile_id              INTEGER PRIMARY KEY AUTOINCREMENT,
 	user_id                 INTEGER NOT NULL,
-	profile_hash            BLOB NOT NULL,
-	encrypted_profile_name  BLOB NOT NULL,
-	encrypted_pass          BLOB NOT NULL,
-	created_at              DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_at               DATETIME DEFAULT CURRENT_TIMESTAMP,
+	pro_hash                TEXT NOT NULL,
+	enc_pro_name            BLOB NOT NULL,
+	enc_pass                BLOB NOT NULL,
+	created_at              INTEGER NOT NULL,
+    update_at               INTEGER NOT NULL,
+    lck                     BOOL,
 	unlock_at               INTEGER,
 	FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 `
+//TODO ;adding prama forreing key on to the databse and 
+
+//   //TODO at startup logic for database register a hook to run on EVERY new connection
+    // sqlite.RegisterConnectionHook(func(conn sqlite.ExecQuerierContext, dsn string) error {
+    //     _, err := conn.ExecContext(context.Background(), "PRAGMA foreign_keys = ON", nil)
+    //     return err
+    // })
 
 func InitializeSchema(db *sql.DB) error {
 	schema := usersTable + /*" " +*/ profilesTable

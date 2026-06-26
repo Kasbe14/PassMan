@@ -55,7 +55,7 @@ func TestInsertUser(t  *testing.T) {
     //setting up the initialize schema 
      db := setUpDB(t)
 
-     testUser := model.Users{
+     testUser := &model.Users{
          Name: "Saurabh", 
          PassHash: "$argon2id$v=19$....",
          EncryptSalt: []byte("fakesalt"),
@@ -90,14 +90,14 @@ func TestInsertUser(t  *testing.T) {
 func TestCheckUserExist(t *testing.T) {
 
      db := setUpDB(t)
-     testUser1 := model.Users{
+     testUser1 := &model.Users{
          Name: "Saurabh", 
          PassHash: "$argon2id$v=19$....",
          EncryptSalt: []byte("fakesalt1"),
          WrappedKeyPass: []byte("fake_encrypted_bytes_pass"),
          WrappedKeyRec: []byte("fake_encrypted_bytes_rec"),
      }
-     testUser2 := model.Users{
+     testUser2 := &model.Users{
          Name: "Vivek", 
          PassHash: "$argon2id$v=20$....",
          EncryptSalt: []byte("fakesalt2"),

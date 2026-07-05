@@ -4,6 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"math/big"
+
 	// "crypto/subtle"
 	"encoding/hex"
 	"fmt"
@@ -17,28 +19,30 @@ const (
 	masterKeySize = 32 //32byteskey
     recStringByteSize = 16
 )
-
-func encryptData(data []byte, key []byte) ([]byte, []byte, error) {
+//takes data bytes and encypts [aesgcm] using key bytes
+//and returns encrpted data in bytes, nonce is appended at front,and error if any
+func encryptData(data []byte, key []byte) ([]byte, error) {
 	//cipher blockW
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to encrypt: %v", err)
+		return nil,  fmt.Errorf("failed to encrypt: %v", err)
 	}
 	aegcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to encrypt: %v", err)
+		return nil, fmt.Errorf("failed to encrypt: %v", err)
 	}
 	//nonce
 	nonce := make([]byte, aegcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, nil, fmt.Errorf("failed to encrypt data: %v", err)
+		return nil,  fmt.Errorf("failed to encrypt data: %v", err)
 	}
 	encryptedData := aegcm.Seal(nil, nonce, []byte(data), nil)
+    finalEncryptedData := append(nonce,encryptedData...)
 
-	return encryptedData, nonce, nil
+	return finalEncryptedData, nil
 
 }
-
+//returns the decrypted bytes
 func decryptData(combinedData, key []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -80,7 +84,7 @@ func generateUserRecoveryString() (string, error) {
     }
     return hex.EncodeToString(buf), nil
 }
-//returns the salt and aes key to encrypt the masterkey
+//takes raw password and returns the salt and aes key to encrypt the masterkey
 func createAESKey(inputPassword string) ([]byte, []byte, error) {
 	salt := make([]byte, saltLenght)
 	//random sal bytes
@@ -102,6 +106,24 @@ func unwrapMasKey(salt,wrappedKey []byte, userpass string) ([]byte,error) {
 	return masterkey, nil
 }
 
+//returns strong password 15 alphnumeric chars 
+func GeneratePassword() (string, error){
+    const lenth = 15
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWZYX1234567890$&"
+    b := make([]byte, lenth)
+    //big.NewInt for number large than 64bits and rand.int
+    charsetLen := big.NewInt(int64(len(charset)))
+    for i := range b {
+        //rand.reader for random start position
+        n, err := rand.Int(rand.Reader,charsetLen)
+        if err != nil {
+            return  "", err
+        }
+        b[i] = charset[n.Int64()]
+    }
+    return string(b), nil
+}
+
 // wipe the critcal data from ram instanlty
 func Wipe(b []byte) {
     if  len(b) == 0 {
@@ -113,3 +135,4 @@ func Wipe(b []byte) {
     _ = b[0]
     runtime.KeepAlive(b)
 }
+

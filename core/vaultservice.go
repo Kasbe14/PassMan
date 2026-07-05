@@ -108,20 +108,50 @@ func (vs *VaultService) LoginUser(username, userpassword string) ([]byte,int64,e
 	return masterkey,userID,nil
 }
 
-//TODO
-// func (vs *VaultService) AddLockedProfile()
-
-
-
+//TODO -> tui will genrate pas every 15 sec dicewar when done signal then call this functton
 //normal profile [unlocked]
-func (v *VaultService) AddNormalProfile( userID int64, profileName,profilePass string, masterKey []byte) error {
-     profileBlindHash := createProfileBlindHash(profileName,masterKey)
-     encryptedProfileName,err := encryptData([]byte(profileName),masterKey)
+func (v *VaultService) AddLockedProfile(days, userID int64, proName,proPass string, mKey []byte) error {
+    //TODO check if already exists
+    lock := true
+    unlockAT := time.Now().Unix() + (days * 86400)
+    createdAt := time.Now().Unix()
+    updatedAt := time.Now().Unix()
+    proBlindHash := createProfileBlindHash(proName,mKey)
+    encryptedProName,err := encryptData([]byte(proName),mKey)
+    if err != nil {
+        return fmt.Errorf("failed to add profile: %v",err)
+    }
+    encryptedProPass,err := encryptData([]byte(proPass),mKey)
+    defer Wipe([]byte(proName))
+    if err != nil {
+        return fmt.Errorf("failed to add profile: %v",err)
+    }
+    profile := &model.Profile{
+        UserID:         userID,        
+        ProfileHash:   proBlindHash, 
+        EncProfileName:encryptedProName, 
+        EncProfilePass:encryptedProPass, 
+        CreatedAt:     createdAt, 
+        UpdatedAt:     updatedAt, 
+        UnlockAT:      unlockAT, 
+        Locked:        lock,
+     }
+     err = database.InsertProfile(v.db,profile)
      if err != nil {
          return fmt.Errorf("failed to add profile: %v",err)
      }
-     encryptedProfilePass,err := encryptData([]byte(profilePass),masterKey)
-     defer Wipe([]byte(profileName))
+     return nil
+}
+
+func (v *VaultService) AddNormalProfile(userID int64, proName,proPass string, mKey []byte) error {
+    //TODO checkProfileExists
+     proBlindHash := createProfileBlindHash(proName,mKey)
+     encryptedProName,err := encryptData([]byte(proName),mKey)
+     if err != nil {
+         return fmt.Errorf("failed to add profile: %v",err)
+     }
+     encryptedProPass,err := encryptData([]byte(proPass),mKey)
+     defer Wipe([]byte(proName))
      if err != nil {
          return fmt.Errorf("failed to add profile: %v",err)
      }
@@ -130,9 +160,9 @@ func (v *VaultService) AddNormalProfile( userID int64, profileName,profilePass s
      locked := false
      profile := &model.Profile{
          UserID:         userID,        
-         ProfileHash:   profileBlindHash, 
-         EncProfileName:encryptedProfileName, 
-         EncProfilePass:encryptedProfilePass, 
+         ProfileHash:   proBlindHash, 
+         EncProfileName:encryptedProName, 
+         EncProfilePass:encryptedProPass, 
          CreatedAt:     createdAt, 
          UpdatedAt:     updatedAt, 
          UnlockAT:      0, 
@@ -140,30 +170,42 @@ func (v *VaultService) AddNormalProfile( userID int64, profileName,profilePass s
       }
       err = database.InsertProfile(v.db,profile)
       if err != nil {
-          return fmt.Errorf("failed to add profile")
+          return fmt.Errorf("failed to add profile: %v",err)
       }
       return nil
 } 
 
-func (v *VaultService) GetProfileByName(profileName string, masterkey []byte) (*model.DecryptedProfile,error) {
-    searchHash := createProfileBlindHash(profileName,masterkey)
+func (v *VaultService) GetProfileByName(profileName string, mKey []byte) (*model.DecryptedProfile,error) {
+    searchHash := createProfileBlindHash(profileName,mKey)
     pEnc, err := database.GetProfileByName(v.db,searchHash)
     if err != nil {
+        if errors.Is(err,sql.ErrNoRows) {
         return nil, fmt.Errorf("profile not found enter correct name")
+        }
+        return nil, fmt.Errorf("failed to get profile %v",err)
     }
     //decrypt the data returned
-    pName , err:= decryptData(pEnc.EncProfileName,masterkey) 
+    pName , err:= decryptData(pEnc.EncProfileName,mKey) 
     if err != nil {
         return nil, fmt.Errorf("failed to get profile %v",err)
     }
-    pPass , err:= decryptData(pEnc.EncProfilePass,masterkey) 
-    if err != nil {
-        return nil, fmt.Errorf("failed to get profile %v",err)
+    var pPass string
+    now := time.Now().Unix()
+    if pEnc.Locked &&  now < pEnc.UnlockAT {
+        timeLeft := time.Duration(pEnc.UnlockAT - now) * time.Second
+        pPass = fmt.Sprintf("Locked Until %s", timeLeft.String())
+    }else {
+        pass, err := decryptData(pEnc.EncProfilePass,mKey)
+        if err != nil {
+            return nil, fmt.Errorf("failed to get profile %v",err)
+        }
+        pPass = string(pass)
     }
+
     //dto for user
     p := &model.DecryptedProfile{
         Name: string(pName),
-        Password: string(pPass),
+        Password: pPass,
         CreatedAt: pEnc.CreatedAt,
         UpdatedAt: pEnc.UpdatedAt,
         Locked:    pEnc.Locked,
@@ -175,14 +217,14 @@ func (v *VaultService) GetProfileByName(profileName string, masterkey []byte) (*
 }
  
 //returns all the profile names of the user
-func (v *VaultService) GetProfileNameList(userID int64, masterkey []byte) ([]string,error) {
+func (v *VaultService) GetProfileNameList(userID int64, mKey []byte) ([]string,error) {
        encNames, err := database.GetProfileNames(v.db, userID)
        if err != nil {
            return nil, fmt.Errorf("failed to get profile names")
        }
        var decNames []string
        for _, encName := range encNames {
-           decName ,err:= decryptData(encName,masterkey)
+           decName ,err:= decryptData(encName,mKey)
            if err != nil {
                return  nil, fmt.Errorf("failed to get profile names")
            }

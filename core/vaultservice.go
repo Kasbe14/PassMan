@@ -189,18 +189,21 @@ func (v *VaultService) GetProfileByName(profileName string, mKey []byte) (*model
     if err != nil {
         return nil, fmt.Errorf("failed to get profile %v",err)
     }
-    var pPass string
+    var lMsg string
+    pPass := pEnc.EncProfilePass
     now := time.Now().Unix()
     if pEnc.Locked &&  now < pEnc.UnlockAT {
         timeLeft := time.Duration(pEnc.UnlockAT - now) * time.Second
-        pPass = fmt.Sprintf("Locked Until %s", timeLeft.String())
-    }else {
-        pass, err := decryptData(pEnc.EncProfilePass,mKey)
-        if err != nil {
-            return nil, fmt.Errorf("failed to get profile %v",err)
-        }
-        pPass = string(pass)
+        lMsg = fmt.Sprintf("Locked Until %s", timeLeft.String())
+        pPass = nil
     }
+    // else {
+    //     pass, err := decryptData(pEnc.EncProfilePass,mKey)
+    //     if err != nil {
+    //         return nil, fmt.Errorf("failed to get profile %v",err)
+    //     }
+    //     pPass = pass
+    // }
 
     //dto for user
     p := &model.DecryptedProfile{
@@ -210,6 +213,7 @@ func (v *VaultService) GetProfileByName(profileName string, mKey []byte) (*model
         UpdatedAt: pEnc.UpdatedAt,
         Locked:    pEnc.Locked,
         UnlockAt:  pEnc.UnlockAT,
+        LockedMsg: lMsg,
     }
    
     return p ,nil

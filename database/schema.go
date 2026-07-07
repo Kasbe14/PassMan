@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 	enc_pro_name            BLOB NOT NULL,
 	enc_pass                BLOB NOT NULL,
 	created_at              INTEGER NOT NULL,
-    update_at               INTEGER NOT NULL,
+    updated_at               INTEGER NOT NULL,
     lck                     BOOL,
 	unlock_at               INTEGER,
 	FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
@@ -52,14 +52,22 @@ func InitializeSchema(db *sql.DB) error {
 
 //creates new databse  at userConfigdiretory
 func NewDatabase() (*sql.DB, error) {
+    //future in user app directory
      // userDbPath, err := dbPath(); 
      // if err != nil {
      //    return nil, fmt.Errorf("failed to open database: %v", err)
     // }
-    db, err := sql.Open("sqlite", /*userDbPath*/"./data.db")
+    //creating foreign key constriant
+    // dbPath_ := fmt.Sprintf("%s?_pragma=foreign_keys(1)",userDbPath)
+    db, err := sql.Open("sqlite", /*dbPath_*/"./data.db")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
+    //setting only once connection
+    db.SetMaxOpenConns(1)
+    if err := db.Ping(); err != nil {
+        return nil, fmt.Errorf("failed to ping the database: %v",err)
+    }
 	return db, nil
 }
 

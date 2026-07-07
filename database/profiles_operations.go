@@ -13,7 +13,7 @@ const (
     VALUES(?,?,?,?,?,?,?,?); 
     `               
     queryGetProfileByName = `
-    SELECT user_id, pro_hash, enc_pro_name, enc_pass, created_at, updated_at, lck, unlock_at FROM profiles WHERE profile_hash = ?;
+    SELECT user_id, pro_hash, enc_pro_name, enc_pass, created_at, updated_at, lck, unlock_at FROM profiles WHERE pro_hash = ?;
     `
     queryUserProfileCount = `
     SELECT COUNT(*) FROM profiles WHERE user_id = ?;

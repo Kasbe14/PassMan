@@ -39,6 +39,7 @@ coverage.html
 
 #learning
 notes.txt
+*.txt
 
 go.mod
 go.sum

@@ -28,14 +28,14 @@ const (
 // }
 
 // generates a salted hash and returns formatted string representation
-func CreateSaltedHash(inputPassword string) (string /*, []byte*/, error) {
+func CreateSaltedHash(inputString string) (string /*, []byte*/, error) {
 	salt := make([]byte, saltLenght)
 	//random sal bytes
 	if _, err := rand.Read(salt); err != nil {
 		return "" /*, nil*/, fmt.Errorf("failed to generate salt: %v", err)
 	}
 	//generating the salted hash
-	hash := argon2.IDKey([]byte(inputPassword), salt, uint32(argonIterations), uint32(argonMemoryUsage), uint8(argonParallelism), uint32(hashLenght))
+	hash := argon2.IDKey([]byte(inputString), salt, uint32(argonIterations), uint32(argonMemoryUsage), uint8(argonParallelism), uint32(hashLenght))
 	//encoding b64 and returning the string format
 	b64salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
@@ -47,7 +47,7 @@ func CreateSaltedHash(inputPassword string) (string /*, []byte*/, error) {
 	return encodedHash /* salt,*/, nil
 }
 
-func AuthenticateUser(inputPass, storedHashEncoding string) (bool, error) {
+func AuthenticateUser(inputString, storedHashEncoding string) (bool, error) {
 	argonIterations, argonMemoryUsage, argonParallelism, err := parseParameters(storedHashEncoding)
 	if err != nil {
 		return false, fmt.Errorf("failed to authenticate user: %v", err)
@@ -61,7 +61,7 @@ func AuthenticateUser(inputPass, storedHashEncoding string) (bool, error) {
 		return false, fmt.Errorf("failed to authenticate user: %v", err)
 	}
 	///compute hash against the inputed password
-	computedHash := argon2.IDKey([]byte(inputPass), salt, argonIterations, argonMemoryUsage, argonParallelism, hashLenght)
+	computedHash := argon2.IDKey([]byte(inputString), salt, argonIterations, argonMemoryUsage, argonParallelism, hashLenght)
 	//compare hash bytes against time attaks
 	if subtle.ConstantTimeCompare(storedHash, computedHash) == 1 {
 		return true, nil

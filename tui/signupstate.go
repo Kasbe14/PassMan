@@ -9,38 +9,23 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-//styles
-const (
-    width = 60
-    charLim = 32
-   )
-var (
-    
-    titleStyle_              = lipgloss.NewStyle().Foreground(lipgloss.Color("#9FA1FF")).Align(lipgloss.Center).Bold(true).
-                               MarginBottom(2).Width(width)
-    focusedStyle             = lipgloss.NewStyle().Foreground(lipgloss.Color("#AEE2FF"))
-    blurredStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-    cursorStyle             = focusedStyle
-    focusedButton           = focusedStyle.Render("[ Submit  ]")
-    helpStyle               = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-    inputStyle              = lipgloss.NewStyle().Align(lipgloss.Left).
-                              Border(lipgloss.NormalBorder(),false,false,true,false).
-                              BorderBottom(true).BorderForeground(lipgloss.Color("#AEE2FF")).Width(width)
-    textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D9F9DF"))
-)
 
 
 type SignUpModel struct {
-    title      string
+    // title      string
     inputs    []textinput.Model //handles username and password
     activeInput int
+    success   bool
     quitSignUp bool
+    suMsg       SignUpMsg//passing and changin state of the SignUpModel
+    userRecString string
     
 }
 //message for error and to go back to home
-type BackMsg struct {
-    backMsg   string
-    quit bool
+type SignUpMsg struct {
+    Err  string
+    User string
+    Pass string
 }
 
 func (su SignUpModel)  Init() tea.Cmd {
@@ -52,8 +37,9 @@ func initialSModel() SignUpModel {
     su:= SignUpModel{
         inputs: make([]textinput.Model,3),
     }
-    su.title = "PassMan"
+    // su.title = "PassMan"
     su.quitSignUp = false
+    su.success = false
     for i := range su.inputs {
         t := textinput.New()
         t.CharLimit = charLim
@@ -86,12 +72,12 @@ func initialSModel() SignUpModel {
     
 }
 //takes the cursorBlinkmsg and handls for each focused input
-func (su SignUpModel) updateInputs(msg tea.Msg) tea.Cmd{
-    cmds := make([]tea.Cmd,len(su.inputs))
+func updateInputs(msg tea.Msg,inputs []textinput.Model) tea.Cmd{
+    cmds := make([]tea.Cmd,len(inputs))
 
-    for i := range su.inputs {
+    for i := range inputs {
         //calling textinput models to update
-        su.inputs[i], cmds[i] = su.inputs[i].Update(msg)
+        inputs[i], cmds[i] = inputs[i].Update(msg)
     }
     return tea.Batch(cmds...)
 }
@@ -100,23 +86,47 @@ func (su SignUpModel)  Update(msg tea.Msg) (tea.Model,tea.Cmd) {
     case tea.KeyMsg:
         inputLen := len(su.inputs)
         switch msg.String(){
-        case "q":
+        case "esc":
             su.quitSignUp = true
             return su,nil
         case "enter":
             //TODO handling inputs
             if su.activeInput == inputLen-1{
-                //TODO get the inputs values using Value method and input validation then passing to backend
-                su.quitSignUp = true
-                return su,nil
+                username := su.inputs[0].Value()
+                pass    := su.inputs[1].Value()
+                passC := su.inputs[2].Value()
+                ulen := len(username)
+                if pass != passC && ulen > 6 {
+                    su.success = false
+                    su.suMsg.Err = "password doesn't match"
+                    return su,nil
+                    
+                }else if ulen > 6 && len(pass) < 6 {
+                    su.success = false
+                    su.suMsg.Err = "password must be atleast 6 character"
+                }
+                if len(username) < 6 {
+                    su.success = false
+                    su.suMsg.Err = "username must be atleast 6 character"
+                    return su,nil
+                }
+                cmd := func () tea.Msg {return SignUpMsg{
+                    Err: "",
+                    User: username,
+                    Pass: pass,
+                }}
+                su.success = true
+                su.suMsg.Err = ""
+                return su,cmd
             }
+        
             //go to next input if not on last input
             su.activeInput++
-            cmds := toggleActiveInputs(su)
+            cmds := toggleActiveInputs(su.inputs,su.activeInput)
             return su, tea.Batch(cmds...)
-            // fallthrough
+            // fallthroug
             //naivgating inputs 
-        case "tab","up","down":
+          case "tab","up","down":
             if msg.String() == "down" || msg.String() == "tab" {
                 su.activeInput++
             }else {
@@ -132,11 +142,11 @@ func (su SignUpModel)  Update(msg tea.Msg) (tea.Model,tea.Cmd) {
             }
             
             //updating the cmds to focus and blink the cursor for the active input
-            cmds := toggleActiveInputs(su)
+            cmds := toggleActiveInputs(su.inputs,su.activeInput)
             return su,tea.Batch(cmds...)
     }
     // case cursor.BlinkMsg:
-        cmd := su.updateInputs(msg)
+        cmd := updateInputs(msg,su.inputs)
         return su,cmd
     
 }
@@ -152,7 +162,7 @@ func (su SignUpModel)  Update(msg tea.Msg) (tea.Model,tea.Cmd) {
 }
 
 func (su SignUpModel)  View() string {
-    title := titleStyle_.Render(su.title)
+    title := titleStyle_.Render(title)
     u := su.inputs[0].View()
     p := su.inputs[1].View()
     cp := su.inputs[2].View()
@@ -160,32 +170,44 @@ func (su SignUpModel)  View() string {
     styledU := inputStyle.Render(u)
     styledP := inputStyle.Render(p)
     styledC :=inputStyle.Render(cp)
-
-
-    help := (helpStyle.Render("[ Next: tab/up/down | Submit: enter | Quit: q ]"))
+    //if singup is submitted and sucess view signup sucess message with no inputs
     
-    s := lipgloss.JoinVertical(lipgloss.Center,title,styledU,styledP,styledC,"\n",help)
+    var s string
+    e := errStyle.Render(su.suMsg.Err)
+    //view err
+    if(!su.success && su.suMsg.Err != "") {
+        s = lipgloss.JoinVertical(lipgloss.Center,title,styledU,styledP,styledC,e,"\n",help)
+    }
+    suc := focusedStyle.Render("SignUp Successful !")
+    warning := errStyle.Render("Important: Save this recovery key. Else forget your data if you forget your password")
+    recString := recStyle.Render(su.userRecString)
+    if (su.success && su.suMsg.Err == "") {
+        s = lipgloss.JoinVertical(lipgloss.Center,title,suc,"\n",warning,recString,"\n",help)
+    }
+    if (!su.success && su.suMsg.Err == "") {
+        s = lipgloss.JoinVertical(lipgloss.Center,title,styledU,styledP,styledC,"\n",help)
+    }
   
     return lipgloss.Place(10,10,lipgloss.Center,lipgloss.Center,s)
     // return su.title
 }
 
-func toggleActiveInputs(su SignUpModel) []tea.Cmd {
-            cmds := make([]tea.Cmd, len(su.inputs))
-            for i := 0; i<len(su.inputs); i++ {
-                if i == su.activeInput {
-                    cmds[i] = su.inputs[i].Focus()
-                    su.inputs[i].PromptStyle = focusedStyle
-                    su.inputs[i].TextStyle = textStyle
+func toggleActiveInputs(inputs []textinput.Model, activeInput int) ([]tea.Cmd ){
+            cmds := make([]tea.Cmd, len(inputs))
+            for i := 0; i<len(inputs); i++ {
+                if i == activeInput {
+                    cmds[i] = inputs[i].Focus()
+                    inputs[i].PromptStyle = focusedStyle
+                    inputs[i].TextStyle = textStyle
                     
-                    cmds = append(cmds,su.inputs[i].Cursor.BlinkCmd())
+                    cmds = append(cmds,inputs[i].Cursor.BlinkCmd())
                     continue
                 }
                 //if not active blur it
                // if i!= su.activeInput{
-                   su.inputs[i].Blur()
-                   su.inputs[i].PromptStyle = blurredStyle
-                   su.inputs[i].TextStyle = blurredStyle
+                   inputs[i].Blur()
+                   inputs[i].PromptStyle = blurredStyle
+                   inputs[i].TextStyle = blurredStyle
                // } 
 
             }

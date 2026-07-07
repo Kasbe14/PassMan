@@ -30,7 +30,7 @@ var (
 
 
 type StartUpModel struct {
-    ProgramTitle string
+    // ProgramTitle string
     Tabs []string
     activeTab int
 }
@@ -58,7 +58,7 @@ func (sm StartUpModel) Update(msg tea.Msg) (tea.Model,tea.Cmd) {
     return  sm,nil
 }
 func (sm StartUpModel) View() string {
-    title := titleStyle.Render(sm.ProgramTitle)
+    title := titleStyle.Render(title)
     var renderTabs []string
     for i,tabName := range sm.Tabs {
         if i == sm.activeTab {
@@ -67,8 +67,9 @@ func (sm StartUpModel) View() string {
             renderTabs = append(renderTabs,inactiveTabStyle.Render(tabName))
         }
     }
+    e := helpStyle.Render("[Quit: ctrl+c,q]")
     tabRow := lipgloss.JoinHorizontal(lipgloss.Top,renderTabs[0],"     ",renderTabs[1])
-    finalUi := lipgloss.JoinVertical(lipgloss.Center,title,tabRow)
+    finalUi := lipgloss.JoinVertical(lipgloss.Center,title,tabRow,"\n",e)
 
     return lipgloss.Place(
         10,10, lipgloss.Center,lipgloss.Center,finalUi,

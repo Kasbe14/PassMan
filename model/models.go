@@ -27,9 +27,11 @@ type Profile struct {
 //dto
 type DecryptedProfile struct {
     Name string
-    Password string
+    // Password string
+    Password []byte
     CreatedAt  int64
     UpdatedAt int64
     Locked     bool
     UnlockAt   int64
+    LockedMsg string
 }

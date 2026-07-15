@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	// "time"
 
 	"github.com/Kasbe14/PassMan/core"
 	"github.com/Kasbe14/PassMan/database"
@@ -11,6 +12,7 @@ import (
 	// "strings"
 	"os"
 )
+
 //styles
 const (
     title = "PassMan"
@@ -22,10 +24,10 @@ var (
     titleStyle_              = lipgloss.NewStyle().Foreground(lipgloss.Color("#9FA1FF")).Align(lipgloss.Center).Bold(true).
                                MarginBottom(2).Width(width)
     focusedStyle             = lipgloss.NewStyle().Foreground(lipgloss.Color("#AEE2FF"))
-    blurredStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-    cursorStyle             = focusedStyle
-    focusedButton           = focusedStyle.Render("[ Submit  ]")
-    helpStyle               = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Align(lipgloss.Left)
+    blurredStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+    // cursorStyle             = focusedStyle
+    // focusedButton           = focusedStyle.Render("[ Submit  ]")
+    helpStyle               = lipgloss.NewStyle().Foreground(lipgloss.Color("242")).Align(lipgloss.Left)
     inputStyle              = lipgloss.NewStyle().Align(lipgloss.Left).Width(width)
                               // Border(lipgloss.NormalBorder(),false,false,true,false).
                               // BorderBottom(true).BorderForeground(lipgloss.Color("#AEE2FF")).Width(width)
@@ -42,6 +44,8 @@ const (
     stateSignUp
     stateLogin
     stateVault
+    stateDashBoard //login dashboard
+    stateAddProfile //adding profile
 )
 
 //custom msg from the core
@@ -64,6 +68,8 @@ type MainModel struct {
     su     SignUpModel
     lm     LoginModel
     vm     VaultModel
+    dbm    DashBoardModel
+    apm    AddProfileModel
     text string
 }
 type MainModelMsg struct {
@@ -77,6 +83,7 @@ func (m MainModel) Init() tea.Cmd {
         m.su.Init(),
         m.lm.Init(),
         m.vm.Init(),
+        m.dbm.Init(),
     )
 }
 
@@ -84,7 +91,8 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     //Global msg for state change
     switch msg:= msg.(type) {
     case tea.KeyMsg:
-		if msg.String() == "ctrl+c" /*||msg.String() == "esc"*/ {
+		if msg.String() == "ctrl+c" {
+            core.Wipe(m.vm.key)
 			return m, tea.Quit
 		}
 
@@ -132,7 +140,10 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.lm.submit = false
         }else {
             m.lm.submit = true
-            m.state = stateVault
+            //goto dashboardstate
+            m.state = /*stateVault*/ stateDashBoard
+            //initialize the dashboard state
+            m.dbm = initialDModel()
             //passing the keys and userId to vaultstate
             m.vm = initialVModel(msg.key,msg.userId)
             // m.vm.key = msg.key
@@ -143,6 +154,58 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.lm.lmMsg.Pass = ""
             m.lm.lmMsg.User = ""
         }
+    case AddProMsg:
+        
+    case ViewPassMsg:
+        if msg.profileName == "" {
+            return m,nil
+        }
+        //uncomment for database/connectivity
+        //else {
+        //    return m, func() tea.Msg {
+        //        pro ,err := m.vault.GetProfileByName(msg.profile,m.vm.key)
+        //        if err != nil {
+        //            return RevealPassMsg{err: err, pass:nil,}
+        //        }
+        //        if pro.Locked {
+        //            return RevealPassMsg{err:err,pass:nil,lockMsg:pro.LockedMsg}
+        //        }
+        //        //calling backned and just in time decrypt
+        //        plaintext, err := m.vault.Decrypt(pro.Password,m.vm.key)
+        //        if err != nil {
+        //           return RevealPassMsg{err: err, pass:nil, lockMsg:pro.LockedMsg}
+        //        }
+        //        return RevealPassMsg{err:nil,pass:plaintext,lockMsg:pro.LockedMsg,listIndex: msg.idx}
+        //    }
+        //}
+        // item := m.vm.listProfile.Items()[msg.idx].(profileName)
+        var targetItem profileName
+    for _, item := range m.vm.listProfile.Items() {
+        p := item.(profileName)
+        if p.name == msg.profileName {
+            targetItem = p
+            break
+        }
+    }
+    
+         return m, func() tea.Msg {
+             return RevealPassMsg{
+                err:       nil,
+                pass:      targetItem.decryptedPass, // Sending the dummy bytes directly
+               // listIndex: msg.idx,
+               proName: msg.profileName,
+        }}
+    case RevealPassMsg:
+        if msg.err != nil {
+            //TODO render the error on the screen if any error form backend
+            return m, nil
+        }
+        var cmd tea.Cmd
+        updatedModel ,subCmd := m.vm.Update(msg)
+        m.vm = updatedModel.(VaultModel)
+        cmd = subCmd
+        return m,cmd
+
 
     }
 
@@ -193,12 +256,39 @@ func (m MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       case stateVault :
           //TODO vault state
           if keyMsg, ok := msg.(tea.KeyMsg); ok && (keyMsg.String() == "esc" && m.vm.quit == true) {
-              m.state = stateStart
-              core.Wipe(m.vm.key)
+              m.state = stateDashBoard
+              // core.Wipe(m.vm.key)
               return m,nil
           }
           updatedModel, subCmd := m.vm.Update(msg)
           m.vm = updatedModel.(VaultModel)
+          cmd = subCmd
+      case stateDashBoard :
+          if keyMsg, ok := msg.(tea.KeyMsg); ok && (keyMsg.String() == "esc" && m.dbm.quit == true) {
+              m.state = stateStart
+              core.Wipe(m.vm.key)
+              return m,nil
+          }
+          if keyMsg, ok := msg.(tea.KeyMsg); ok && (keyMsg.String() == "enter") {
+              if m.dbm.activeTab == 0 {
+                  //TODO go to add profile model
+                  m.state = stateAddProfile
+                  return m,nil
+              }else if m.dbm.activeTab == 1 {
+                  m.state = stateVault
+                  return m,nil
+              }
+          }
+          updatedModel, subCmd := m.dbm.Update(msg)
+          m.dbm = updatedModel.(DashBoardModel)
+          cmd = subCmd
+      case stateAddProfile:
+          if keyMsg, ok := msg.(tea.KeyMsg); ok && (keyMsg.String() == "esc" && m.apm.quit == true) {
+              m.state = stateDashBoard
+              return m,nil
+          }
+          updatedModel, subCmd := m.apm.Update(msg)
+          m.apm = updatedModel.(AddProfileModel)
           cmd = subCmd
 	  }
 
@@ -224,6 +314,10 @@ func (m MainModel) View() string {
         return m.lm.View()
     case stateVault:
         return m.vm.View()
+    case stateDashBoard:
+        return m.dbm.View()
+    case stateAddProfile:
+        return m.apm.View()
     }
     
     return "Loading.."
@@ -252,6 +346,7 @@ func Start()  {
     p := tea.NewProgram(
 
         InitialMainModel(StartUpModel{Tabs: []string{"SignUp","LogIn"},activeTab:0},vs),
+        tea.WithAltScreen(),//renders new terminal
     )
     if _,err := p.Run(); err != nil {
         fmt.Printf("Alas, there's been an error: %v", err)

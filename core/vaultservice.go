@@ -237,3 +237,8 @@ func (v *VaultService) GetProfileNameList(userID int64, mKey []byte) ([]string,e
        return decNames, nil
 }
 
+//just in time decryption
+func (v *VaultService) Decrypt(data, key []byte) ([]byte,error){
+   decryptedBytes , err := decryptData(data,key)
+   return decryptedBytes,err
+}
